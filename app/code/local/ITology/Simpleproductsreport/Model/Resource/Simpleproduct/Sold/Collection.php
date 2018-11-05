@@ -1,67 +1,64 @@
 <?php
 
 
-class ITology_Simpleproductsreport_Model_Resource_Simpleproduct_Sold_Collection extends Mage_Reports_Model_Resource_Product_Sold_Collection
+class ITology_Simpleproductsreport_Block_Report_Product_Simplesold_Grid extends Mage_Adminhtml_Block_Report_Product_Sold_Grid
 {
     /**
-     * Add ordered qty's
-     * updating condition to show simple products instead of products with NULL parent id
+     * Setting up proper product collection name for a report
      *
-     * @param string $from
-     * @param string $to
-     * @return updating condition to show simple products instead of products with NULL parent id
+     * @return ITology_Simpleproductsreport_Block_Report_Product_Simplesold_Grid
      */
-    public function addOrderedQty($from = '', $to = '')
+    protected function _prepareCollection()
     {
-        $adapter              = $this->getConnection();
-        $compositeTypeIds     = Mage::getSingleton('catalog/product_type')->getCompositeTypes();
-        $orderTableAliasName  = $adapter->quoteIdentifier('order');
-
-        $orderJoinCondition   = array(
-            $orderTableAliasName . '.entity_id = order_items.order_id',
-            $adapter->quoteInto("{$orderTableAliasName}.state <> ?", Mage_Sales_Model_Order::STATE_CANCELED),
-
-        );
-
-        $productJoinCondition = array(
-            $adapter->quoteInto('(e.type_id NOT IN (?))', $compositeTypeIds),
-            'e.entity_id = order_items.product_id',
-            $adapter->quoteInto('e.entity_type_id = ?', $this->getProductEntityTypeId())
-        );
-
-        if ($from != '' && $to != '') {
-            $fieldName            = $orderTableAliasName . '.created_at';
-            $orderJoinCondition[] = $this->_prepareBetweenSql($fieldName, $from, $to);
-        }
-
-        $this->getSelect()->reset()
-            ->from(
-                array('order_items' => $this->getTable('sales/order_item')),
-                array(
-                    'ordered_qty' => 'SUM(order_items.qty_ordered)',
-                    'order_items_name' => 'order_items.name'
-                ))
-            ->joinInner(
-                array('order' => $this->getTable('sales/order')),
-                implode(' AND ', $orderJoinCondition),
-                array())
-            ->joinLeft(
-                array('e' => $this->getProductEntityTableName()),
-                implode(' AND ', $productJoinCondition),
-                array(
-                    'entity_id' => 'order_items.product_id',
-                    'entity_type_id' => 'e.entity_type_id',
-                    'attribute_set_id' => 'e.attribute_set_id',
-                    'type_id' => 'e.type_id',
-                    'sku' => 'e.sku',
-                    'has_options' => 'e.has_options',
-                    'required_options' => 'e.required_options',
-                    'created_at' => 'e.created_at',
-                    'updated_at' => 'e.updated_at'
-                ))
-            ->where('e.type_id = ?', 'simple')
-            ->group('order_items.product_id')
-            ->having('SUM(order_items.qty_ordered) > ?', 0);
+        Mage_Adminhtml_Block_Report_Grid::_prepareCollection();
+        $this->getCollection()
+            ->initReport('itology_simpleproductsreport/simpleproduct_sold_collection');
         return $this;
+    }
+
+    protected function _prepareColumns()
+    {
+
+        $this->addColumn('entity_id', array(
+            'header'    =>Mage::helper('reports')->__('ID'),
+            'index'     =>'entity_id',
+            'align'     => 'left'
+        ));
+
+        $this->addColumn('name', array(
+            'header'    =>Mage::helper('reports')->__('Product Name'),
+            'index'     =>'name',
+            'align'     => 'left'
+        ));
+
+        $this->addColumn('sku', array(
+            'header'    =>Mage::helper('reports')->__('Product SKU'),
+            'index'     =>'sku',
+            'align'     => 'left'
+        ));
+
+        $this->addColumn('ordered_qty', array(
+            'header'    =>Mage::helper('reports')->__('Quantity Ordered'),
+            'index'     =>'ordered_qty',
+            'align'     => 'left'
+        ));
+
+        $this->addColumn('price', array(
+            'header'        => Mage::helper('reports')->__('Total Price'),
+            'index'         => 'price',
+            'align'          => 'left',
+            'renderer'      => 'ITology_Simpleproductsreport_Block_Report_Product_Price'
+        ));
+
+        $this->addColumn('cost', array(
+            'header'        => Mage::helper('reports')->__('Total Cost'),
+            'index'         => 'cost',
+            'align'         => 'left',
+            'renderer'      => 'ITology_Simpleproductsreport_Block_Report_Product_Cost'
+        ));
+
+        $this->setCountTotals(false);
+        return parent::_prepareColumns();
+
     }
 }
